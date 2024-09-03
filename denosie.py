@@ -9,6 +9,8 @@ from plyfile import PlyData, PlyElement
 import open3d as o3d
 import cv2
 import math
+from scipy.spatial import cKDTree
+import matplotlib.pyplot as plt
 
 from graphs import *
 from provider import * 
@@ -55,70 +57,77 @@ def partition2array(xyz, components,visual = False, n = 1): # Identify points in
     """write a ply with random colors for each components"""
     random_color = lambda: random.randint(0, 255)
     color = np.zeros(xyz.shape)
-    pcd = o3d.geometry.PointCloud()
-    for i_com in range(0, len(components)):
-        color[components[i_com], :] = [random_color(), random_color()
-        , random_color()]
-    prop = [('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1')
-    , ('green', 'u1'), ('blue', 'u1')]
-    vertex_all = np.empty(len(xyz), dtype=prop)
-    if visual:
-        for i in range(0, 3):
-            vertex_all[prop[i][0]] = xyz[:, i]
-        for i in range(0, 3):
-            vertex_all[prop[i+3][0]] = color[:, i]
+    # pcd = o3d.geometry.PointCloud()
+    # for i_com in range(0, len(components)):
+    #     color[components[i_com], :] = [random_color(), random_color()
+    #     , random_color()]
+    # prop = [('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1')
+    # , ('green', 'u1'), ('blue', 'u1')]
+    # vertex_all = np.empty(len(xyz), dtype=prop)
+    # if visual:
+    #     for i in range(0, 3):
+    #         vertex_all[prop[i][0]] = xyz[:, i]
+    #     for i in range(0, 3):
+    #         vertex_all[prop[i+3][0]] = color[:, i]
 
     if n > len(components):
         n = len(components)
-    extracted_points_array = []
-    extracted_points_all = []
-    extracted_points_color = []
-    for i in range(0,n):
-        if visual:
-            extracted_points1 = np.empty(vertex_all.shape)
-            extracted_points1 = vertex_all[components[i]]
-            extracted_points_all.extend(extracted_points1)
-
-            extracted_points2 = np.empty(xyz.shape)
-            extracted_points2 = xyz[components[i]]
-            extracted_points_array.append(extracted_points2)
-
-            extracted_points3 = np.empty(xyz.shape)
-            extracted_points3 = color[components[i]]
-            extracted_points_color.append(extracted_points2)
-        else:
-            extracted_points = np.empty(xyz.shape)
-            extracted_points = xyz[components[i]]
-            extracted_points_array.append(extracted_points)
 
     components_roi = []
     single_roi = []
     for i in range(0,n):
         components_roi = components_roi + components[i]
-        single_roi[i] = xyz[components[i]]
-    color = color/255.0
+        single_roi.append(xyz[components[i]])
+    # color = color/255.0
 
-    # 将 NumPy 数组转换为 Open3D 点云格式
-    pcd.points = o3d.utility.Vector3dVector(xyz[components_roi])
+    # # 将 NumPy 数组转换为 Open3D 点云格式
+    # pcd.points = o3d.utility.Vector3dVector(xyz[components_roi])
 
-    # 将颜色数据转换为 Open3D 格式
-    pcd.colors = o3d.utility.Vector3dVector(color[components_roi])
+    # # 将颜色数据转换为 Open3D 格式
+    # pcd.colors = o3d.utility.Vector3dVector(color[components_roi])
 
-    return pcd
-        
-    # for i in range(0,len(components)):
-    #     array = np.empty(shape=(len(components)),dtype = int)
-    #     array[i] = len(components[i])
-    #     np.savetxt('/root/code/GLR1.0/array.txt',array)
+    return single_roi
+
+def compute_overlap(pcd1,pcd2,threshold=0.05):
+    # 创建KDTree
+    tree1 = cKDTree(pcd1)
+    tree2 = cKDTree(pcd2)
     
-    # cloudpoints = extracted_points_array
-    # if visual:
-    #     now = datetime.now()
-    #     formatted_time = now.strftime("%Y-%m-%d %H:%M:%S")
-    #     extracted_points_all_np = np.array(extracted_points_all)
-    #     ply = PlyData([PlyElement.describe(extracted_points_all_np, 'vertex')], text=True)
-    #     ply.write('/root/datasets/test/'+ formatted_time + '.ply')
-    # return cloudpoints
+    # 计算点云1中每个点到点云2的最近邻距离
+    distances1, _ = tree1.query(pcd2, k=1)
+    
+    # 计算点云2中每个点到点云1的最近邻距离
+    distances2, _ = tree2.query(pcd1, k=1)
+    
+    # 计算在阈值内的点的数量
+    overlap_count1 = np.sum(distances1 < threshold)
+    overlap_count2 = np.sum(distances2 < threshold)
+    
+    # 计算重叠点的比例
+    total_points1 = len(pcd1)
+    total_points2 = len(pcd2)
+    
+    overlap_ratio1 = overlap_count1 / total_points1
+    overlap_ratio2 = overlap_count2 / total_points2
+    
+    # 平均重叠度
+    average_overlap = (overlap_ratio1 + overlap_ratio2) / 2
+    return average_overlap
+
+def mse_similarity(pcd1, pcd2):
+    # 创建KDTree
+    tree1 = cKDTree(pcd1)
+    tree2 = cKDTree(pcd2)
+    
+    # 计算点云1中每个点到点云2的最近邻距离
+    distances1, _ = tree1.query(pcd2, k=1)
+    
+    # 计算点云2中每个点到点云1的最近邻距离
+    distances2, _ = tree2.query(pcd1, k=1)
+    
+    # 计算均方误差（MSE）
+    mse = np.mean(distances1**2) + np.mean(distances2**2)
+    return mse
 
 def visualize_point_cloud(pcd):
     # 使用 Open3D 可视化函数
@@ -137,29 +146,65 @@ def calculate_weighted_centroid(arrays):
     denominator = np.sum(flat_array)  # 计算元素数量的总和
     centroid = int(numerator) / denominator  # 计算重心
     rounded = round(centroid/2)
-    sum =  math.fsum(flat_array[:rounded])
-    print(sum)
-    return rounded
+    # sum =  math.fsum(flat_array[:rounded])
+    # print(sum)
+    return 50
+
+def dataloader(filepath,filetxt):
+    xyz = plyread(filepath)
+    components = readcomponents(filetxt)
+    Threshold = calculate_weighted_centroid(components)
+    single_roi = partition2array(xyz, components,True,Threshold)
+    return single_roi
+
+def plot_point_cloud(points1,points2):
+    fig1 = plt.figure()
+    ax = fig1.add_subplot(111, projection='3d')
+    ax.scatter(points1[:, 0], points1[:, 1], points1[:, 2], s=1)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    fig2 = plt.figure()
+    ay = fig2.add_subplot(111, projection='3d')
+    ay.scatter(points2[:, 0], points2[:, 1], points2[:, 2], s=1)
+    ay.set_xlabel('X')
+    ay.set_ylabel('Y')
+    ay.set_zlabel('Z')
+
+    plt.show()
+
+def random_downsample(point_cloud, sample_ratio):
+    num_points = point_cloud.shape[0]
+    sample_size = int(num_points * sample_ratio)
+    indices = np.random.choice(num_points, sample_size, replace=False)
+    return point_cloud[indices]
 
 if __name__=="__main__":
     print('begin')
     
-    filepath = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station12.ply'
-    filetxt = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station12.txt'
+    filepath1 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station11.ply'
+    filetxt1 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station11.txt'
+    filepath2 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station12.ply'
+    filetxt2 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station12.txt'
     # filepath = 'L:/DataSet/GLR3d/GLR1.2/Basement/train/room_station2.ply'
     # filetxt = 'L:/DataSet/GLR3d/GLR1.2/Basement/train/room_station2.txt'
-    xyz = plyread(filepath)
-    components = readcomponents(filetxt)
-    print(len(components))
-    Threshold = calculate_weighted_centroid(components)
-    # Threshold = 1
-    # for i in range(0,len(components)):
-    #     if len(components[i]) < 10000 or i == len(components)-1:
-    #         Threshold = i
-    #         break
-    print(Threshold)
-    pcd = partition2array(xyz, components,True,Threshold)
-    visualize_point_cloud(pcd)
+    single_roi1 = dataloader(filepath1,filetxt1)
+    print('computed first station')
+    single_roi2 = dataloader(filepath2,filetxt2)
+    print('computed second station')
+    min_overlap = 1000
+    location = 1
+    for i, values1 in enumerate(single_roi1):
+        for j, values2 in enumerate(single_roi2):
+            temp = mse_similarity(values1,values2)
+            if temp < min_overlap:
+                min_overlap = temp
+                location = j
+        plot_point_cloud(single_roi1[i],single_roi2[location])
+        cv2.waitKey(0)
+
+    # visualize_point_cloud(pcd)
     print('success')
 
 
