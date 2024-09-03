@@ -1,0 +1,1 @@
+# cloudpoint-registration
