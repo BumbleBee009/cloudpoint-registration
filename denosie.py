@@ -56,11 +56,14 @@ def readcomponents(filepath):
 def partition2array(xyz, components,visual = False, n = 1): # Identify points in the same cluster by color
     """write a ply with random colors for each components"""
     random_color = lambda: random.randint(0, 255)
-    color = np.zeros(xyz.shape)
+    # color = np.zeros(xyz.shape)
+    color = np.zeros(len(xyz))
     # pcd = o3d.geometry.PointCloud()
     # for i_com in range(0, len(components)):
     #     color[components[i_com], :] = [random_color(), random_color()
     #     , random_color()]
+    for i_com in range(0, len(components)):
+        color[components[i_com]] = [random_color()]
     # prop = [('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1')
     # , ('green', 'u1'), ('blue', 'u1')]
     # vertex_all = np.empty(len(xyz), dtype=prop)
@@ -77,8 +80,9 @@ def partition2array(xyz, components,visual = False, n = 1): # Identify points in
     single_roi = []
     for i in range(0,n):
         components_roi = components_roi + components[i]
-        single_roi.append(xyz[components[i]])
-    # color = color/255.0
+        singlecloud_roi = random_downsample(xyz[components[i]],0.1)
+        single_roi.append(singlecloud_roi)
+    color = color/255.0
 
     # # 将 NumPy 数组转换为 Open3D 点云格式
     # pcd.points = o3d.utility.Vector3dVector(xyz[components_roi])
@@ -86,7 +90,7 @@ def partition2array(xyz, components,visual = False, n = 1): # Identify points in
     # # 将颜色数据转换为 Open3D 格式
     # pcd.colors = o3d.utility.Vector3dVector(color[components_roi])
 
-    return single_roi
+    return single_roi, xyz[components_roi], color[components_roi]
 
 def compute_overlap(pcd1,pcd2,threshold=0.05):
     # 创建KDTree
@@ -154,8 +158,42 @@ def dataloader(filepath,filetxt):
     xyz = plyread(filepath)
     components = readcomponents(filetxt)
     Threshold = calculate_weighted_centroid(components)
-    single_roi = partition2array(xyz, components,True,Threshold)
-    return single_roi
+    single_roi, xyz_, color_ = partition2array(xyz, components,True,Threshold)
+    return single_roi, xyz_, color_
+
+def plot_color_point_cloud(xyz1,color1,xyz2,color2):
+    sizes = 1
+    fig = plt.figure(figsize=(14, 6))
+
+    # 第一个三维子图
+    ax = fig.add_subplot(121, projection='3d')
+    # 绘制彩色三维点云
+    sc1 = ax.scatter(xyz1[:,0], xyz1[:,1], xyz1[:,2], c=color1, s=1, alpha=0.5, cmap='viridis')
+    # 添加标题和轴标签
+    ax.set_title('Colorful 3D Scatter Plot 1')
+    ax.set_xlabel('X-axis')
+    ax.set_ylabel('Y-axis')
+    ax.set_zlabel('Z-axis')
+
+    # 第二个三维子图
+    ay = fig.add_subplot(122, projection='3d')
+    # 绘制彩色三维点云
+    sc2 = ay.scatter(xyz2[:,0], xyz2[:,1], xyz2[:,2], c=color2, s=1, alpha=0.5, cmap='viridis')
+    # 添加标题和轴标签
+    ay.set_title('Colorful 3D Scatter Plot 2')
+    ay.set_xlabel('X-axis')
+    ay.set_ylabel('Y-axis')
+    ay.set_zlabel('Z-axis')
+
+    # 添加颜色条
+    fig.colorbar(sc1, ax=ax)
+    fig.colorbar(sc2, ax=ay)
+    # 调整子图布局
+    plt.tight_layout()
+
+    # 显示图像
+    plt.show(block=False)
+
 
 def plot_point_cloud(points1,points2):
     fig1 = plt.figure()
@@ -183,26 +221,30 @@ def random_downsample(point_cloud, sample_ratio):
 if __name__=="__main__":
     print('begin')
     
-    filepath1 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station11.ply'
-    filetxt1 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station11.txt'
-    filepath2 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station12.ply'
-    filetxt2 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station12.txt'
-    # filepath = 'L:/DataSet/GLR3d/GLR1.2/Basement/train/room_station2.ply'
-    # filetxt = 'L:/DataSet/GLR3d/GLR1.2/Basement/train/room_station2.txt'
-    single_roi1 = dataloader(filepath1,filetxt1)
+    filepath1 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station14.ply'
+    filetxt1 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station14.txt'
+    filepath2 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station13.ply'
+    filetxt2 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station13.txt'
+    single_roi1,xyz1,colors1 = dataloader(filepath1,filetxt1)
     print('computed first station')
-    single_roi2 = dataloader(filepath2,filetxt2)
+    single_roi2,xyz2,colors2 = dataloader(filepath2,filetxt2)
     print('computed second station')
-    min_overlap = 1000
-    location = 1
+    
+    plot_color_point_cloud(xyz1,colors1,xyz2,colors2)
+
+    cv2.namedWindow('test')
     for i, values1 in enumerate(single_roi1):
+        flag = True
         for j, values2 in enumerate(single_roi2):
             temp = mse_similarity(values1,values2)
+            if flag: min_overlap = temp;  location = j; flag = False 
             if temp < min_overlap:
                 min_overlap = temp
                 location = j
+            print(min_overlap)
         plot_point_cloud(single_roi1[i],single_roi2[location])
         cv2.waitKey(0)
+        print('The '+ str(i) +'th')
 
     # visualize_point_cloud(pcd)
     print('success')
