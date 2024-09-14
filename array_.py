@@ -209,11 +209,15 @@ def plot_point_cloud(points1,points2,positions):
 
     i = 5
     if i>len(positions):i = len(positions)
-    fig, ay = plt.subplots(1, i, figsize=(15, 3))  # 调整 figsize 以控制图的大小
-
+    fig = plt.figure(figsize=(10, 8))
+    # 计算网格布局（行和列）
+    rows = int(math.ceil(math.sqrt(i)))  # 行数
+    cols = int(math.ceil(i / rows))      # 列数
     # 操作每个子图
+    ay = []
     for j in range(i):
-        ay[j] = fig.add_subplot(111, projection='3d')
+        position = j+1
+        ay.append(fig.add_subplot(rows,cols,position, projection='3d'))
         ay[j].set_title(f"Subplot {i+1}")
         ay[j].scatter(points2[positions[j]][:, 0], points2[positions[j]][:, 1], points2[positions[j]][:, 2], s=1)
         ay[j].set_xlabel('X')
