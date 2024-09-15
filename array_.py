@@ -8,6 +8,7 @@ from plyfile import PlyData, PlyElement
 import torch
 import cv2
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 # Step 1: 提取点云的FPFH特征
 def extract_fpfh_features(pcd, voxel_size=0.05):
@@ -157,39 +158,44 @@ def calculate_weighted_centroid(arrays):
 def partition2array(xyz, components,visual = False, n = 1): # Identify points in the same cluster by color
     """write a ply with random colors for each components"""
     random_color = lambda: random.randint(0, 255)
-    # color = np.zeros(xyz.shape)
-    color = np.zeros(len(xyz))
-    # pcd = o3d.geometry.PointCloud()
-    # for i_com in range(0, len(components)):
-    #     color[components[i_com], :] = [random_color(), random_color()
-    #     , random_color()]
+    colors = np.zeros(xyz.shape)
+    # color = np.zeros(len(xyz))
     for i_com in range(0, len(components)):
-        color[components[i_com]] = [random_color()]
-    # prop = [('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1')
-    # , ('green', 'u1'), ('blue', 'u1')]
-    # vertex_all = np.empty(len(xyz), dtype=prop)
-    # if visual:
-    #     for i in range(0, 3):
-    #         vertex_all[prop[i][0]] = xyz[:, i]
-    #     for i in range(0, 3):
-    #         vertex_all[prop[i+3][0]] = color[:, i]
+        # color[components[i_com]] = [random_color()]
+        colors[components[i_com], :] = [random_color(), random_color()
+            , random_color()]
+    prop = [('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1')
+    , ('green', 'u1'), ('blue', 'u1')]
+    vertex_all = np.empty(len(xyz), dtype=prop)
+    if visual:
+        for i in range(0, 3):
+            vertex_all[prop[i][0]] = xyz[:, i]
+        for i in range(0, 3):
+            vertex_all[prop[i+3][0]] = colors[:, i]
 
     if n > len(components):
         n = len(components)
 
     components_roi = []
     single_roi = []
+    extracted_points_all = []
     for i in range(0,n):
         components_roi = components_roi + components[i]
         singlecloud_roi = random_downsample(xyz[components[i]],0.2)
         single_roi.append(singlecloud_roi)
-    color = color/255.0
+    # color = color/255.0
+        if visual:
+            extracted_points1 = np.empty(vertex_all.shape)
+            extracted_points1 = vertex_all[components[i]]
+            extracted_points_all.extend(extracted_points1)
 
-    # # 将 NumPy 数组转换为 Open3D 点云格式
-    # pcd.points = o3d.utility.Vector3dVector(xyz[components_roi])
-
-    # # 将颜色数据转换为 Open3D 格式
-    # pcd.colors = o3d.utility.Vector3dVector(color[components_roi])
+    if visual:
+        now = datetime.now()
+        # formatted_time = now.strftime("%Y-%m-%d %H:%M:%S")
+        formatted_time = now.strftime("%Y-%m-%d-%H-%M-%S")
+        extracted_points_all_np = np.array(extracted_points_all)
+        ply = PlyData([PlyElement.describe(extracted_points_all_np, 'vertex')], text=True)
+        ply.write('C:/Users/lwh/Desktop/test/'+ formatted_time + '.ply')
 
     return single_roi
 
@@ -209,7 +215,7 @@ def plot_point_cloud(points1,points2,positions):
 
     i = 5
     if i>len(positions):i = len(positions)
-    fig = plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(15, 12))
     # 计算网格布局（行和列）
     rows = int(math.ceil(math.sqrt(i)))  # 行数
     cols = int(math.ceil(i / rows))      # 列数
