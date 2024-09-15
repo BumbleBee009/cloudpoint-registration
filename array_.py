@@ -139,21 +139,32 @@ def radix_sort(components):
         exp *= 10
 
 def calculate_weighted_centroid(arrays):
+    rounded = 0
+
     # 展开数组并统计每个元素的出现次数
     # flat_array = [item for sublist in arrays for item in sublist]
     flat_array = [len(sublist) for sublist in arrays]
     indices = np.arange(len(flat_array))
     indices = indices + 1
-
-    # 计算重心
-    numberator_step = np.abs(indices) * np.abs(flat_array)
-    numerator = math.fsum(numberator_step)   # 计算乘积之和
-    denominator = np.sum(flat_array)  # 计算元素数量的总和
-    centroid = int(numerator) / denominator  # 计算重心
-    rounded = round(centroid/2)
-    # sum =  math.fsum(flat_array[:rounded])
-    # print(sum)
-    return 50
+    if False:
+        # 计算重心
+        numberator_step = np.abs(indices) * np.abs(flat_array)
+        numerator = math.fsum(numberator_step)   # 计算乘积之和
+        denominator = np.sum(flat_array)  # 计算元素数量的总和
+        centroid = int(numerator) / denominator  # 计算重心
+        rounded = round(centroid/2)
+        # sum =  math.fsum(flat_array[:rounded])
+        # print(sum)
+    else:
+        sum =  math.fsum(flat_array)
+        temp_sum = 0
+        for i,value in enumerate(flat_array):
+            temp_sum = temp_sum + flat_array[i]
+            if temp_sum > sum/2:
+                rounded = i
+                break
+    print(rounded)
+    return rounded
 
 def partition2array(xyz, components,visual = False, type = 0, n = 1): # Identify points in the same cluster by color
     """write a ply with random colors for each components"""
@@ -273,10 +284,10 @@ def plot_point_cloud(points1,points2,positions):
 if __name__ == "__main__":
 
     # 加载点云数据
-    filepath1 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station14.ply'
-    filetxt1 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station14.txt'
-    filepath2 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station13.ply'
-    filetxt2 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station13.txt'
+    filepath1 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station16.ply'
+    filetxt1 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station16.txt'
+    filepath2 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station15.ply'
+    filetxt2 = 'L:/DataSet/GLR3d/GLR1.2/BLYM/train/BLYM_station15.txt'
     single_roi1 = dataloader(filepath1,filetxt1)
     print('computed first station')
     single_roi2 = dataloader(filepath2,filetxt2)
