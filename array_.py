@@ -62,7 +62,7 @@ def dataloader(filepath,filetxt):
     xyz = plyread(filepath)
     components = readcomponents(filetxt)
     Threshold = calculate_weighted_centroid(components)
-    single_roi = partition2array(xyz, components,True,Threshold)
+    single_roi = partition2array(xyz, components,True, 1 , Threshold)
     return single_roi
 
 def plyread(filepath, points_only=True):
@@ -155,9 +155,10 @@ def calculate_weighted_centroid(arrays):
     # print(sum)
     return 50
 
-def partition2array(xyz, components,visual = False, n = 1): # Identify points in the same cluster by color
+def partition2array(xyz, components,visual = False, type = 0, n = 1): # Identify points in the same cluster by color
     """write a ply with random colors for each components"""
     random_color = lambda: random.randint(0, 255)
+    pcd = o3d.geometry.PointCloud()
     colors = np.zeros(xyz.shape)
     # color = np.zeros(len(xyz))
     for i_com in range(0, len(components)):
@@ -189,13 +190,47 @@ def partition2array(xyz, components,visual = False, n = 1): # Identify points in
             extracted_points1 = vertex_all[components[i]]
             extracted_points_all.extend(extracted_points1)
 
-    if visual:
+        
+    
+    if type == 1:
+        # 将 NumPy 数组转换为 Open3D 点云格式
+        pcd.points = o3d.utility.Vector3dVector(xyz[components_roi])
+        # 将颜色数据转换为 Open3D 格式
+        # tensor_color = torch.from_numpy(colors[components_roi])
+        pcd.colors = o3d.utility.Vector3dVector(colors[components_roi]/255.0)
+
+        now = datetime.now()
+        voxel_size = 0.5
+        downsampled_pcd = pcd.voxel_down_sample(voxel_size)
+        formatted_time = now.strftime("%Y-%m-%d-%H-%M-%S")
+        o3d.io.write_point_cloud('C:/Users/lwh/Desktop/test/'+ formatted_time + '_o.ply', pcd)
+        o3d.io.write_point_cloud('C:/Users/lwh/Desktop/test/'+ formatted_time + '.ply', downsampled_pcd)
+    elif type == 2:
         now = datetime.now()
         # formatted_time = now.strftime("%Y-%m-%d %H:%M:%S")
         formatted_time = now.strftime("%Y-%m-%d-%H-%M-%S")
         extracted_points_all_np = np.array(extracted_points_all)
-        ply = PlyData([PlyElement.describe(extracted_points_all_np, 'vertex')], text=True)
+        extracted_points_all_np_temp = random_downsample(extracted_points_all_np,0.01)
+        ply = PlyData([PlyElement.describe(extracted_points_all_np_temp, 'vertex')], text=True)
         ply.write('C:/Users/lwh/Desktop/test/'+ formatted_time + '.ply')
+    elif type == 3:
+        # # 将 NumPy 数组转换为 Open3D 点云格式
+        pcd.points = o3d.utility.Vector3dVector(xyz[components_roi])
+        # # 将颜色数据转换为 Open3D 格式
+        pcd.colors = o3d.utility.Vector3dVector(colors[components_roi])
+
+        # 设置ISS关键点提取的参数
+        iss_keypoints = o3d.geometry.keypoint.compute_iss_keypoints(pcd,
+            salient_radius=0.005,  # 基于模型大小定义的显著性半径
+            non_max_radius=0.005,  # 非极大值抑制半径
+            gamma_21=0.975,        # 控制关键点的形状
+            gamma_32=0.975,        # 控制关键点的形状
+            min_neighbors=5        # 定义最小近邻数以识别关键点
+        )
+        # 保存关键点到文件
+        now = datetime.now()
+        formatted_time = now.strftime("%Y-%m-%d-%H-%M-%S")
+        o3d.io.write_point_cloud('C:/Users/lwh/Desktop/test/'+ formatted_time + '.ply', iss_keypoints)
 
     return single_roi
 
@@ -247,47 +282,47 @@ if __name__ == "__main__":
     single_roi2 = dataloader(filepath2,filetxt2)
     print('computed second station')
 
-    # Step 1: 提取FPFH特征
-    fpfh1 = [] ; fpfh2 = []
-    for i , values in enumerate(single_roi1):
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(values)
-        fpfh1.append(extract_fpfh_features(pcd))
+    # # Step 1: 提取FPFH特征
+    # fpfh1 = [] ; fpfh2 = []
+    # for i , values in enumerate(single_roi1):
+    #     pcd = o3d.geometry.PointCloud()
+    #     pcd.points = o3d.utility.Vector3dVector(values)
+    #     fpfh1.append(extract_fpfh_features(pcd))
     
-    for i , values in enumerate(single_roi2):
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(values)
-        fpfh2.append(extract_fpfh_features(pcd))
+    # for i , values in enumerate(single_roi2):
+    #     pcd = o3d.geometry.PointCloud()
+    #     pcd.points = o3d.utility.Vector3dVector(values)
+    #     fpfh2.append(extract_fpfh_features(pcd))
 
-    # Step 2: 生成词典
-    fpfh = fpfh1 + fpfh2
-    vocabulary = build_vocabulary(fpfh, vocab_size=100)
+    # # Step 2: 生成词典
+    # fpfh = fpfh1 + fpfh2
+    # vocabulary = build_vocabulary(fpfh, vocab_size=100)
 
-    # Step 3: 将点云特征转换为词袋直方图
-    bow1 = [] ; bow2 = [] 
-    for i, values in enumerate(fpfh1):
-        bow1.append(point_cloud_to_bow(fpfh1[i], vocabulary))
-    for i, values in enumerate(fpfh2):
-        bow2.append(point_cloud_to_bow(fpfh2[i], vocabulary))
+    # # Step 3: 将点云特征转换为词袋直方图
+    # bow1 = [] ; bow2 = [] 
+    # for i, values in enumerate(fpfh1):
+    #     bow1.append(point_cloud_to_bow(fpfh1[i], vocabulary))
+    # for i, values in enumerate(fpfh2):
+    #     bow2.append(point_cloud_to_bow(fpfh2[i], vocabulary))
 
-    # Step 4: 计算点云之间的相似性
-    # sim12 = compute_similarity(bow1, bow2)
-    cv2.namedWindow('test')
-    for i, values1 in enumerate(single_roi1):
-        flag = True
-        temp_value =[]
-        for j, values2 in enumerate(single_roi2):
-            temp = compute_similarity(bow1[i], bow2[j])
-            # if flag: max_overlap = temp;  location = j; flag = False
-            # if temp > max_overlap:
-            #     max_overlap = temp
-            #     location = j
-            # print(max_overlap)
-            temp_value.append(temp)
-            temp_tuples = [(index, value) for index, value in enumerate(temp_value)]
-            # 按照元组中的第二个元素（值部分）降序排序
-            sorted_by_value_desc = sorted(temp_tuples, key=lambda x: x[1], reverse=True)
-            positions = [t[0] for t in sorted_by_value_desc]
-        plot_point_cloud(single_roi1[i],single_roi2,positions)
-        cv2.waitKey(0)
-        print('The '+ str(i) +'th')
+    # # Step 4: 计算点云之间的相似性
+    # # sim12 = compute_similarity(bow1, bow2)
+    # cv2.namedWindow('test')
+    # for i, values1 in enumerate(single_roi1):
+    #     flag = True
+    #     temp_value =[]
+    #     for j, values2 in enumerate(single_roi2):
+    #         temp = compute_similarity(bow1[i], bow2[j])
+    #         # if flag: max_overlap = temp;  location = j; flag = False
+    #         # if temp > max_overlap:
+    #         #     max_overlap = temp
+    #         #     location = j
+    #         # print(max_overlap)
+    #         temp_value.append(temp)
+    #         temp_tuples = [(index, value) for index, value in enumerate(temp_value)]
+    #         # 按照元组中的第二个元素（值部分）降序排序
+    #         sorted_by_value_desc = sorted(temp_tuples, key=lambda x: x[1], reverse=True)
+    #         positions = [t[0] for t in sorted_by_value_desc]
+    #     plot_point_cloud(single_roi1[i],single_roi2,positions)
+    #     cv2.waitKey(0)
+    #     print('The '+ str(i) +'th')
