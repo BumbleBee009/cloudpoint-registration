@@ -192,39 +192,45 @@ def partition2array(xyz, components,visual = False, type = 0, n = 1): # Identify
     components_roi = []
     single_roi = []
     extracted_points_all = []
+    extracted_points_array = []
     for i in range(0,n):
         components_roi = components_roi + components[i]
-        singlecloud_roi = random_downsample(xyz[components[i]],0.2)
-        single_roi.append(singlecloud_roi)
-    # color = color/255.0
         if visual:
             extracted_points1 = np.empty(vertex_all.shape)
             extracted_points1 = vertex_all[components[i]]
             extracted_points_all.extend(extracted_points1)
+        else:
+            extracted_points = np.empty(xyz.shape)
+            extracted_points = xyz[components[i]]
+            extracted_points_array.append(extracted_points)
 
         
     
     if type == 1:
         # 将 NumPy 数组转换为 Open3D 点云格式
         pcd.points = o3d.utility.Vector3dVector(xyz[components_roi])
-        # 将颜色数据转换为 Open3D 格式
-        # tensor_color = torch.from_numpy(colors[components_roi])
-        pcd.colors = o3d.utility.Vector3dVector(colors[components_roi]/255.0)
+        if visual:
+            # 将颜色数据转换为 Open3D 格式
+            pcd.colors = o3d.utility.Vector3dVector(colors[components_roi]/255.0)
 
         now = datetime.now()
         voxel_size = 0.5
         downsampled_pcd = pcd.voxel_down_sample(voxel_size)
-        formatted_time = now.strftime("%Y-%m-%d-%H-%M-%S")
-        o3d.io.write_point_cloud('/root/code/test/'+ formatted_time + '_o.ply', pcd)
-        o3d.io.write_point_cloud('/root/code/test/'+ formatted_time + '.ply', downsampled_pcd)
+        single_cloud = downsampled_pcd
+        if visual:
+            formatted_time = now.strftime("%Y-%m-%d-%H-%M-%S")
+            o3d.io.write_point_cloud('/root/code/test/'+ formatted_time + '_o.ply', pcd)
+            o3d.io.write_point_cloud('/root/code/test/'+ formatted_time + '.ply', downsampled_pcd)
     elif type == 2:
         now = datetime.now()
-        # formatted_time = now.strftime("%Y-%m-%d %H:%M:%S")
-        formatted_time = now.strftime("%Y-%m-%d-%H-%M-%S")
         extracted_points_all_np = np.array(extracted_points_all)
         extracted_points_all_np_temp = random_downsample(extracted_points_all_np,0.01)
-        ply = PlyData([PlyElement.describe(extracted_points_all_np_temp, 'vertex')], text=True)
-        ply.write('/root/code/test/'+ formatted_time + '.ply')
+        single_cloud = extracted_points_all_np_temp
+        if visual:    
+            # formatted_time = now.strftime("%Y-%m-%d %H:%M:%S")
+            formatted_time = now.strftime("%Y-%m-%d-%H-%M-%S")
+            ply = PlyData([PlyElement.describe(extracted_points_all_np_temp, 'vertex')], text=True)
+            ply.write('/root/code/test/'+ formatted_time + '.ply')
     elif type == 3:
         # # 将 NumPy 数组转换为 Open3D 点云格式
         pcd.points = o3d.utility.Vector3dVector(xyz[components_roi])
@@ -239,12 +245,14 @@ def partition2array(xyz, components,visual = False, type = 0, n = 1): # Identify
             gamma_32=0.975,        # 控制关键点的形状
             min_neighbors=5        # 定义最小近邻数以识别关键点
         )
+        single_cloud = iss_keypoints
         # 保存关键点到文件
-        now = datetime.now()
-        formatted_time = now.strftime("%Y-%m-%d-%H-%M-%S")
-        o3d.io.write_point_cloud('/root/code/test/'+ formatted_time + '.ply', iss_keypoints)
+        if visual: 
+            now = datetime.now()
+            formatted_time = now.strftime("%Y-%m-%d-%H-%M-%S")
+            o3d.io.write_point_cloud('/root/code/test/'+ formatted_time + '.ply', iss_keypoints)
 
-    return single_roi
+    return single_cloud
 
 def random_downsample(point_cloud, sample_ratio):
     num_points = point_cloud.shape[0]
@@ -273,10 +281,10 @@ def plot_point_cloud(points1,points2):
 if __name__ == "__main__":
 
     # 加载点云数据
-    filepath1 = '/root/data1/dataset/GLR/BLYM/train/BLYM_station17.ply'
-    filetxt1 = '/root/data1/dataset/GLR/BLYM/train/BLYM_station17.txt'
-    filepath2 = '/root/data1/dataset/GLR/BLYM/train/BLYM_station18.ply'
-    filetxt2 = '/root/data1/dataset/GLR/BLYM/train/BLYM_station18.txt'
+    filepath1 = '/root/data1/dataset/GLR/BLYM/train/BLYM_station11.ply'
+    filetxt1 = '/root/data1/dataset/GLR/BLYM/train/BLYM_station11.txt'
+    filepath2 = '/root/data1/dataset/GLR/BLYM/train/BLYM_station12.ply'
+    filetxt2 = '/root/data1/dataset/GLR/BLYM/train/BLYM_station12.txt'
     single_roi1 = dataloader(filepath1,filetxt1)
     print('computed first station')
     single_roi2 = dataloader(filepath2,filetxt2)
