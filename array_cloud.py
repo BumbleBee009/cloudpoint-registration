@@ -76,7 +76,7 @@ def dataloader_single(filepath):
     filetxt = filetemple.with_suffix('.txt')
     components = readcomponents(filetxt)
     Threshold = calculate_weighted_centroid(components)
-    single_roi = partition2array(xyz, components,True,1,Threshold)
+    single_roi = partition2array(xyz, components,False,1,Threshold)
     return single_roi
 
 def plyread(filepath, points_only=True):
@@ -180,6 +180,12 @@ def calculate_weighted_centroid(arrays):
     print('the kinds of pointblock is: ',rounded)
     return rounded
 
+def fibonacci_iterative(n):
+    a,b = 0,1
+    for _ in range(n):
+        yield a #使用yield可以逐个返回非伯纳切数字
+        a,b=b,a+b
+
 def partition2array(xyz, components,visual = False, type = 0, n = 1): # Identify points in the same cluster by color
     """write a ply with random colors for each components"""
     random_color = lambda: random.randint(0, 255)
@@ -218,14 +224,22 @@ def partition2array(xyz, components,visual = False, type = 0, n = 1): # Identify
 
     if type == 1:
         # 将 NumPy 数组转换为 Open3D 点云格式
-        pcd.points = o3d.utility.Vector3dVector(xyz[components_roi])
+        if len(xyz[components_roi]) > 10000:
+            pcd.points = o3d.utility.Vector3dVector(xyz[components_roi])
+        elif len(xyz) > 10000 or len(xyz) == 10000:
+            print("don't use components")
+            pcd.points = o3d.utility.Vector3dVector(xyz)
+        elif len(xyz) < 10000:
+            print("the number of points is less 1W!!!")
+            pcd.points = o3d.utility.Vector3dVector(xyz)
         if visual:
             # 将颜色数据转换为 Open3D 格式
             pcd.colors = o3d.utility.Vector3dVector(colors[components_roi]/255.0)
+        single_cloud = xyz
 
         now = datetime.now()
-        for i in range(1,20):    
-            voxel_size = 0.6/i
+        for i in fibonacci_iterative(20):    
+            voxel_size = 0.6/(i+1)
             downsampled_pcd = pcd.voxel_down_sample(voxel_size)
             if len(downsampled_pcd.points) > 10000:
                 break
